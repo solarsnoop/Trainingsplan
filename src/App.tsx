@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Play, Plus, Minus, Check, ChevronLeft, Settings2, X, Flame, RotateCcw } from "lucide-react";
+import { Play, Plus, Minus, Check, ChevronLeft, Settings2, X, Flame, RotateCcw, Trash2 } from "lucide-react";
 
 // ---------- Default plan, transcribed from the handwritten card ----------
 const DEFAULT_PLAN = [
@@ -147,6 +147,17 @@ export default function App() {
     setView("plan");
   }
 
+  function resetAll() {
+    const reset = DEFAULT_PLAN.map((ex) => ({
+      ...ex,
+      order: null,
+      sets: 3,
+      weight: null,
+      seat: "",
+    }));
+    setPlan(reset);
+  }
+
   return (
     <div className="min-h-screen bg-[#191b17] text-[#F1EFE7] font-sans flex flex-col">
       {view === "plan" && (
@@ -156,6 +167,7 @@ export default function App() {
           setEditingId={setEditingId}
           updateExercise={updateExercise}
           startTraining={startTraining}
+          onReset={resetAll}
         />
       )}
       {view === "warmup" && <WarmupView onContinue={beginSets} onBack={() => setView("plan")} />}
@@ -168,15 +180,26 @@ export default function App() {
 }
 
 // ================= PLAN VIEW =================
-function PlanView({ plan, editingId, setEditingId, updateExercise, startTraining }) {
+function PlanView({ plan, editingId, setEditingId, updateExercise, startTraining, onReset }) {
   const active = plan.filter((ex) => ex.order !== null && ex.order !== "" && !isNaN(ex.order));
   const activeCount = active.length;
+  const [showReset, setShowReset] = useState(false);
 
   return (
     <div className="flex-1 flex flex-col">
       <div className="bg-[#5C7A2E] px-5 pt-7 pb-5 sticky top-0 z-10">
-        <div className="flex items-baseline justify-between">
-          <h1 className="text-2xl font-extrabold tracking-tight">Trainingsplan</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold tracking-tight">Trainingsplan</h1>
+            <button
+              onClick={() => setShowReset(true)}
+              className="flex items-center gap-1 text-xs font-semibold text-[#E4ECD4] hover:text-white bg-[#4a6324] hover:bg-[#3d521d] px-2.5 py-1.5 rounded-lg transition active:scale-95"
+              title="Alle Werte zurücksetzen"
+            >
+              <RotateCcw size={13} />
+              Zurücksetzen
+            </button>
+          </div>
           <span className="text-[#E4ECD4] text-sm font-medium">{activeCount} aktiv</span>
         </div>
         <p className="text-[#E4ECD4] text-sm mt-1">Reihenfolge antippen zum Sortieren · Gerät antippen zum Bearbeiten</p>
@@ -283,6 +306,33 @@ function ExerciseRow({ ex, isEditing, onTap, onChange }) {
               className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
             />
           </label>
+        </div>
+      )}
+      {showReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowReset(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 size={20} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-stone-800">Zurücksetzen</h3>
+            </div>
+            <p className="text-sm text-stone-600 mb-5">Möchtest du wirklich alle Werte zurücksetzen? Reihenfolge, Sätze, Gewicht und Sitzhöhe werden auf die Standardwerte gesetzt.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReset(false)}
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-semibold text-sm hover:bg-stone-50 transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => { onReset(); setShowReset(false); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition active:scale-95"
+              >
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
