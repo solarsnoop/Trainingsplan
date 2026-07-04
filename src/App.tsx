@@ -365,7 +365,7 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
   }, [session.exIndex, session.setIndex]);
 
   function adjustWeight(delta) {
-    setSession((prev) => ({ ...prev, currentWeight: Math.max(0, Math.round(((prev.currentWeight || 0) + delta) * 2) / 2) }));
+    setSession((prev) => ({ ...prev, currentWeight: Math.max(0, Math.round((prev.currentWeight || 0) + delta)) }));
   }
 
   function handleFinish() {
@@ -430,7 +430,7 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
           </div>
           <div className="flex items-center justify-between">
             <button
-              onClick={() => adjustWeight(-2.5)}
+              onClick={() => adjustWeight(-1)}
               className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
             >
               <Minus size={20} />
@@ -440,7 +440,7 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
               <span className="text-lg font-medium text-[#8A8D82] ml-1">kg</span>
             </div>
             <button
-              onClick={() => adjustWeight(2.5)}
+              onClick={() => adjustWeight(1)}
               className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
             >
               <Plus size={20} />
