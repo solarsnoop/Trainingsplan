@@ -148,14 +148,7 @@ export default function App() {
   }
 
   function resetAll() {
-    const reset = DEFAULT_PLAN.map((ex) => ({
-      ...ex,
-      order: null,
-      sets: 3,
-      weight: null,
-      seat: "",
-    }));
-    setPlan(reset);
+    setPlan((prev) => prev.map((ex) => ({ ...ex, order: null, sets: 3, weight: null, seat: "" })));
   }
 
   return (
@@ -227,6 +220,34 @@ function PlanView({ plan, editingId, setEditingId, updateExercise, startTraining
           Training starten
         </button>
       </div>
+
+      {showReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowReset(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 size={20} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-stone-800">Zurücksetzen</h3>
+            </div>
+            <p className="text-sm text-stone-600 mb-5">Möchtest du wirklich alle Werte zurücksetzen? Reihenfolge, Sätze, Gewicht und Sitzhöhe werden auf die Standardwerte gesetzt.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReset(false)}
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-semibold text-sm hover:bg-stone-50 transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => { onReset(); setShowReset(false); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition active:scale-95"
+              >
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -306,33 +327,6 @@ function ExerciseRow({ ex, isEditing, onTap, onChange }) {
               className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
             />
           </label>
-        </div>
-      )}
-      {showReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6" onClick={() => setShowReset(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 size={20} className="text-red-600" />
-              </div>
-              <h3 className="text-lg font-bold text-stone-800">Zurücksetzen</h3>
-            </div>
-            <p className="text-sm text-stone-600 mb-5">Möchtest du wirklich alle Werte zurücksetzen? Reihenfolge, Sätze, Gewicht und Sitzhöhe werden auf die Standardwerte gesetzt.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowReset(false)}
-                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 font-semibold text-sm hover:bg-stone-50 transition"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={() => { onReset(); setShowReset(false); }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition active:scale-95"
-              >
-                Zurücksetzen
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
