@@ -32,6 +32,11 @@ const DEFAULT_PLAN = [
   { id: "f1", nr: "F1", name: "Frei 1", sets: 3, weight: null, seat: "", order: null, custom: true },
   { id: "f2", nr: "F2", name: "Frei 2", sets: 3, weight: null, seat: "", order: null, custom: true },
   { id: "f3", nr: "F3", name: "Frei 3", sets: 3, weight: null, seat: "", order: null, custom: true },
+  { id: "c1", nr: "C1", name: "Laufband", sets: null, weight: null, seat: "", order: null, unit: "time", minutes: 10, level: 5 },
+  { id: "c2", nr: "C2", name: "Fahrrad", sets: null, weight: null, seat: "", order: null, unit: "time", minutes: 10, level: 5 },
+  { id: "c3", nr: "C3", name: "Crosstrainer", sets: null, weight: null, seat: "", order: null, unit: "time", minutes: 10, level: 5 },
+  { id: "ft1", nr: "FT1", name: "Frei (Zeit) 1", sets: null, weight: null, seat: "", order: null, unit: "time", minutes: 5, level: null, custom: true },
+  { id: "ft2", nr: "FT2", name: "Frei (Zeit) 2", sets: null, weight: null, seat: "", order: null, unit: "time", minutes: 5, level: null, custom: true },
 ];
 
 const STORAGE_KEY = "trainingsplan_v1";
@@ -85,6 +90,7 @@ export default function App() {
       exIndex: 0,
       setIndex: 1,
       currentWeight: active[0].weight,
+      currentLevel: active[0].level,
       reps: {}, // { exId: [rep1, rep2, ...] }
     });
     setView("warmup");
@@ -102,9 +108,29 @@ export default function App() {
       arr[prev.setIndex - 1] = repCount;
       reps[ex.id] = arr;
 
-      // persist weight change back to plan if it changed
-      if (prev.currentWeight !== ex.weight) {
+      // persist weight/level change back to plan if it changed
+      if (ex.unit !== "time" && prev.currentWeight !== ex.weight) {
         setPlan((p) => p.map((e) => (e.id === ex.id ? { ...e, weight: prev.currentWeight } : e)));
+      }
+      if (ex.unit === "time" && prev.currentLevel !== ex.level) {
+        setPlan((p) => p.map((e) => (e.id === ex.id ? { ...e, level: prev.currentLevel } : e)));
+      }
+
+      // time-based exercises: single completion, no sets
+      if (ex.unit === "time") {
+        const nextIndex = prev.exIndex + 1;
+        if (nextIndex >= prev.queue.length) {
+          setView("summary");
+          return { ...prev, reps };
+        }
+        return {
+          ...prev,
+          exIndex: nextIndex,
+          setIndex: 1,
+          currentWeight: prev.queue[nextIndex].weight,
+          currentLevel: prev.queue[nextIndex].level,
+          reps,
+        };
       }
 
       if (prev.setIndex < ex.sets) {
@@ -121,6 +147,7 @@ export default function App() {
         exIndex: nextIndex,
         setIndex: 1,
         currentWeight: prev.queue[nextIndex].weight,
+        currentLevel: prev.queue[nextIndex].level,
         reps,
       };
     });
@@ -138,6 +165,7 @@ export default function App() {
         exIndex: nextIndex,
         setIndex: 1,
         currentWeight: prev.queue[nextIndex].weight,
+        currentLevel: prev.queue[nextIndex].level,
       };
     });
   }
@@ -148,7 +176,12 @@ export default function App() {
   }
 
   function resetAll() {
-    setPlan((prev) => prev.map((ex) => ({ ...ex, order: null, sets: 3, weight: null, seat: "" })));
+    setPlan((prev) => prev.map((ex) => {
+      if (ex.unit === "time") {
+        return { ...ex, order: null, minutes: 10, level: ex.id.startsWith("ft") ? null : 5, seat: "" };
+      }
+      return { ...ex, order: null, sets: 3, weight: null, seat: "" };
+    }));
   }
 
   return (
@@ -271,7 +304,9 @@ function ExerciseRow({ ex, isEditing, onTap, onChange }) {
             {ex.name}
           </div>
           <div className="text-xs text-[#8A8D82] mt-0.5">
-            {ex.sets} Sätze{ex.weight ? ` · ${ex.weight} kg` : ""}{ex.seat ? ` · Sitz ${ex.seat}` : ""}
+            {ex.unit === "time"
+              ? `${ex.minutes} Min${ex.level ? ` · Level ${ex.level}` : ""}${ex.seat ? ` · Sitz ${ex.seat}` : ""}`
+              : `${ex.sets} Sätze${ex.weight ? ` · ${ex.weight} kg` : ""}${ex.seat ? ` · Sitz ${ex.seat}` : ""}`}
           </div>
         </div>
         <Settings2 size={16} className="text-[#8A8D82] shrink-0" />
@@ -299,24 +334,49 @@ function ExerciseRow({ ex, isEditing, onTap, onChange }) {
               className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
             />
           </label>
-          <label className="text-xs text-[#8A8D82]">
-            Sätze
-            <input
-              type="number"
-              value={ex.sets}
-              onChange={(e) => onChange({ sets: Number(e.target.value) })}
-              className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
-            />
-          </label>
-          <label className="text-xs text-[#8A8D82]">
-            Gewicht (kg)
-            <input
-              type="number"
-              value={ex.weight ?? ""}
-              onChange={(e) => onChange({ weight: e.target.value === "" ? null : Number(e.target.value) })}
-              className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
-            />
-          </label>
+          {ex.unit === "time" ? (
+            <>
+              <label className="text-xs text-[#8A8D82]">
+                Minuten
+                <input
+                  type="number"
+                  value={ex.minutes ?? ""}
+                  onChange={(e) => onChange({ minutes: e.target.value === "" ? null : Number(e.target.value) })}
+                  className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
+                />
+              </label>
+              <label className="text-xs text-[#8A8D82]">
+                Level
+                <input
+                  type="number"
+                  value={ex.level ?? ""}
+                  onChange={(e) => onChange({ level: e.target.value === "" ? null : Number(e.target.value) })}
+                  className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="text-xs text-[#8A8D82]">
+                Sätze
+                <input
+                  type="number"
+                  value={ex.sets}
+                  onChange={(e) => onChange({ sets: Number(e.target.value) })}
+                  className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
+                />
+              </label>
+              <label className="text-xs text-[#8A8D82]">
+                Gewicht (kg)
+                <input
+                  type="number"
+                  value={ex.weight ?? ""}
+                  onChange={(e) => onChange({ weight: e.target.value === "" ? null : Number(e.target.value) })}
+                  className="mt-1 w-full bg-[#191b17] border border-[#3a3d34] rounded-lg px-2 py-2 text-[#F1EFE7]"
+                />
+              </label>
+            </>
+          )}
           <label className="text-xs text-[#8A8D82]">
             Sitzhöhe
             <input
@@ -368,12 +428,23 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
     setSession((prev) => ({ ...prev, currentWeight: Math.max(0, Math.round((prev.currentWeight || 0) + delta)) }));
   }
 
-  function handleFinish() {
-    const val = reps === "" ? null : Number(reps);
-    onFinishSet(val);
+  function adjustLevel(delta) {
+    setSession((prev) => ({ ...prev, currentLevel: Math.max(1, Math.round((prev.currentLevel || 1) + delta)) }));
   }
 
-  const progressPct = ((session.exIndex + (session.setIndex - 1) / ex.sets) / session.queue.length) * 100;
+  function handleFinish() {
+    if (isTime) {
+      onFinishSet(null);
+    } else {
+      const val = reps === "" ? null : Number(reps);
+      onFinishSet(val);
+    }
+  }
+
+  const isTime = ex.unit === "time";
+  const progressPct = isTime
+    ? ((session.exIndex) / session.queue.length) * 100
+    : ((session.exIndex + (session.setIndex - 1) / ex.sets) / session.queue.length) * 100;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -401,53 +472,119 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
           </div>
           <h2 className="text-2xl font-extrabold leading-tight">{ex.name}</h2>
         </div>
-        <div className="text-[#8A8D82] text-sm mb-6">Ziel: 8–12 Wdh.</div>
+        <div className="text-[#8A8D82] text-sm mb-6">{isTime ? `${ex.minutes} Minuten` : "Ziel: 8–12 Wdh."}</div>
 
-        <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between">
-          <span className="text-[#8A8D82] font-medium">Satz</span>
-          <div className="flex items-center gap-2">
-            {Array.from({ length: ex.sets }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
-                  i + 1 < session.setIndex
-                    ? "bg-[#8BAA4B] text-[#191b17]"
-                    : i + 1 === session.setIndex
-                    ? "bg-[#D98E3A] text-[#191b17]"
-                    : "bg-[#33362d] text-[#8A8D82]"
-                }`}
-              >
-                {i + 1 < session.setIndex ? <Check size={16} /> : i + 1}
+        {isTime ? (
+          <>
+            <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
+              <div className="text-[#8A8D82] text-sm mb-2">Dauer</div>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {}}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95 opacity-50"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="text-4xl font-black tabular-nums">
+                  {ex.minutes}
+                  <span className="text-lg font-medium text-[#8A8D82] ml-1">Min</span>
+                </div>
+                <button
+                  onClick={() => {}}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95 opacity-50"
+                >
+                  <Plus size={20} />
+                </button>
               </div>
-            ))}
-          </div>
-          <span className="text-[#F1EFE7] font-bold">{session.setIndex}/{ex.sets}</span>
-        </div>
-
-        <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
-          <div className="text-[#8A8D82] text-sm mb-2">
-            Gewicht alt: <span className="text-[#F1EFE7] font-semibold">{ex.weight ?? "–"} kg</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => adjustWeight(-1)}
-              className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
-            >
-              <Minus size={20} />
-            </button>
-            <div className="text-4xl font-black tabular-nums">
-              {session.currentWeight ?? 0}
-              <span className="text-lg font-medium text-[#8A8D82] ml-1">kg</span>
             </div>
-            <button
-              onClick={() => adjustWeight(1)}
-              className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-          <div className="text-xs text-[#8A8D82] text-center mt-2">neu — optional, wird für nächstes Mal gespeichert</div>
-        </div>
+
+            <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
+              <div className="text-[#8A8D82] text-sm mb-2">
+                Level alt: <span className="text-[#F1EFE7] font-semibold">{ex.level ?? "–"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => adjustLevel(-1)}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="text-4xl font-black tabular-nums">
+                  {session.currentLevel ?? 1}
+                  <span className="text-lg font-medium text-[#8A8D82] ml-1">Lvl</span>
+                </div>
+                <button
+                  onClick={() => adjustLevel(1)}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+              <div className="text-xs text-[#8A8D82] text-center mt-2">neu — optional, wird für nächstes Mal gespeichert</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4 flex items-center justify-between">
+              <span className="text-[#8A8D82] font-medium">Satz</span>
+              <div className="flex items-center gap-2">
+                {Array.from({ length: ex.sets }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
+                      i + 1 < session.setIndex
+                        ? "bg-[#8BAA4B] text-[#191b17]"
+                        : i + 1 === session.setIndex
+                        ? "bg-[#D98E3A] text-[#191b17]"
+                        : "bg-[#33362d] text-[#8A8D82]"
+                    }`}
+                  >
+                    {i + 1 < session.setIndex ? <Check size={16} /> : i + 1}
+                  </div>
+                ))}
+              </div>
+              <span className="text-[#F1EFE7] font-bold">{session.setIndex}/{ex.sets}</span>
+            </div>
+
+            <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
+              <div className="text-[#8A8D82] text-sm mb-2">
+                Gewicht alt: <span className="text-[#F1EFE7] font-semibold">{ex.weight ?? "–"} kg</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => adjustWeight(-1)}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="text-4xl font-black tabular-nums">
+                  {session.currentWeight ?? 0}
+                  <span className="text-lg font-medium text-[#8A8D82] ml-1">kg</span>
+                </div>
+                <button
+                  onClick={() => adjustWeight(1)}
+                  className="w-12 h-12 rounded-xl bg-[#33362d] flex items-center justify-center active:scale-95"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+              <div className="text-xs text-[#8A8D82] text-center mt-2">neu — optional, wird für nächstes Mal gespeichert</div>
+            </div>
+
+            <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
+              <label className="text-[#8A8D82] text-sm block mb-2">Wdh.</label>
+              <input
+                ref={repInputRef}
+                type="number"
+                inputMode="numeric"
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                placeholder="z.B. 10"
+                className="w-full bg-[#191b17] border border-[#3a3d34] rounded-xl px-4 py-3 text-3xl font-black text-center tabular-nums focus:outline-none focus:border-[#8BAA4B]"
+              />
+            </div>
+          </>
+        )}
 
         {ex.seat && (
           <div className="bg-[#22251e] rounded-2xl px-5 py-3 mb-4 flex items-center justify-between">
@@ -455,19 +592,6 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
             <span className="text-2xl font-black">{ex.seat}</span>
           </div>
         )}
-
-        <div className="bg-[#22251e] rounded-2xl px-5 py-4 mb-4">
-          <label className="text-[#8A8D82] text-sm block mb-2">Wdh.</label>
-          <input
-            ref={repInputRef}
-            type="number"
-            inputMode="numeric"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-            placeholder="z.B. 10"
-            className="w-full bg-[#191b17] border border-[#3a3d34] rounded-xl px-4 py-3 text-3xl font-black text-center tabular-nums focus:outline-none focus:border-[#8BAA4B]"
-          />
-        </div>
 
         <div className="mt-auto pb-6 pt-2 flex gap-3">
           <button onClick={onSkip} className="text-[#8A8D82] text-sm px-3 py-3">
@@ -477,7 +601,7 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
             onClick={handleFinish}
             className="flex-1 flex items-center justify-center gap-2 bg-[#8BAA4B] text-[#191b17] font-extrabold text-lg py-4 rounded-2xl active:scale-[0.98] transition"
           >
-            <Check size={22} /> Satz fertig
+            <Check size={22} /> {isTime ? "Fertig" : "Satz fertig"}
           </button>
         </div>
       </div>
@@ -487,7 +611,8 @@ function SessionView({ session, setSession, onFinishSet, onSkip, onEnd }) {
 
 // ================= SUMMARY VIEW =================
 function SummaryView({ session, onDone }) {
-  const totalSets = session.queue.reduce((sum, ex) => sum + ex.sets, 0);
+  const totalSets = session.queue.filter((ex) => ex.unit !== "time").reduce((sum, ex) => sum + ex.sets, 0);
+  const totalMinutes = session.queue.filter((ex) => ex.unit === "time").reduce((sum, ex) => sum + (ex.minutes || 0), 0);
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
       <div className="w-16 h-16 rounded-full bg-[#8BAA4B] flex items-center justify-center mb-4">
@@ -495,13 +620,19 @@ function SummaryView({ session, onDone }) {
       </div>
       <h2 className="text-3xl font-extrabold mb-2">Training abgeschlossen</h2>
       <p className="text-[#8A8D82] mb-8">
-        {session.queue.length} Übungen · {totalSets} Sätze
+        {session.queue.length} Übungen
+        {totalSets > 0 && ` · ${totalSets} Sätze`}
+        {totalMinutes > 0 && ` · ${totalMinutes} Min`}
       </p>
       <div className="w-full max-w-xs bg-[#22251e] rounded-2xl divide-y divide-[#2c2f28] mb-8 text-left">
         {session.queue.map((ex) => (
           <div key={ex.id} className="px-4 py-2.5 flex items-center justify-between text-sm">
             <span className="truncate pr-2">{ex.name}</span>
-            <span className="text-[#8A8D82] shrink-0">{(session.reps[ex.id] || []).filter((r) => r != null).join(", ") || "–"} Wdh.</span>
+            {ex.unit === "time" ? (
+              <span className="text-[#8A8D82] shrink-0">{ex.minutes} Min{ex.level ? ` · Lvl ${ex.level}` : ""}</span>
+            ) : (
+              <span className="text-[#8A8D82] shrink-0">{(session.reps[ex.id] || []).filter((r) => r != null).join(", ") || "–"} Wdh.</span>
+            )}
           </div>
         ))}
       </div>
