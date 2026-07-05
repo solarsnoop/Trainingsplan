@@ -54,7 +54,12 @@ export default function App() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) setPlan(parsed);
+        if (Array.isArray(parsed) && parsed.length) {
+          // merge: keep saved data, but add any new default exercises that are missing
+          const savedIds = new Set(parsed.map((e) => e.id));
+          const missing = DEFAULT_PLAN.filter((e) => !savedIds.has(e.id));
+          setPlan([...parsed, ...missing]);
+        }
       }
     } catch (e) {
       // no saved plan yet — keep default
